@@ -286,7 +286,150 @@ dissolve_polygons <- function(mysf, group_column){
   return(temp_sf)
 }
 
+                                    
+###### Matching function for AMC code -----------------                                    
 
+# funcao criada pelo Phillip para checar repeticao de AMCs
+
+# faz iteracao entre clusters
+# comparando clusters entre si repeditamente até estabilizar numero dos clusters
+
+matching <- function(data_mun=NULL, y0){
+
+  temp <- data_mun %>% 
+    select(c(paste0("clu",y0),clu_new)) %>% 
+    filter(!is.na(clu_new)) %>% 
+    arrange(get(paste0("clu",y0)),clu_new) %>% 
+    filter(!(get(paste0("clu",y0))==clu_new) ) 
+  
+  if (nrow(temp) > 1) {
+    
+    temp$diff <- 0
+    
+    for(i in 2:nrow(temp)){ if (is.na(temp[,c(paste0("clu",y0))][i-1]) | is.na( temp[,c("clu_new")][i-1]) ) next 
+      else if (temp[,c(paste0("clu",y0))][i] == temp[,c(paste0("clu",y0))][i-1] 
+               & temp[,c("clu_new")][i] == temp[,c("clu_new")][i-1])
+        
+        temp$diff[i] <- 1
+    }
+    
+    temp <- temp %>%
+      filter(diff != 1)
+    
+    temp <- temp %>% select(-diff)
+    
+  } 
+  
+  # 
+  # temp <- fread("exemplo.csv") %>% mutate_all(as.character)
+  
+  temp <- temp %>% mutate(!!paste0("clu",quo_name(y0)) := ifelse(is.na(get(paste0("clu",y0))),-999999999,get(paste0("clu",y0))))
+  
+  rep_c<-0
+  
+  repeat {
+    
+    
+    rep_c <- (rep_c + 1)
+    
+    while (sum(temp[,c(paste0("clu",y0))] == lag(temp[,c(paste0("clu",y0))],1),na.rm = T) != 0) {
+      
+      for(i in 2:nrow(temp)) if (temp[,c(paste0("clu",y0))][i] == temp[,c(paste0("clu",y0))][i-1]) temp[,c(paste0("clu",y0))][i] <- temp$clu_new[i] 
+      
+      for(i in 2:nrow(temp)) if (temp$clu_new[i] == temp[,c(paste0("clu",y0))][i]) temp$clu_new[i] <- temp$clu_new[i-1] 
+      
+      temp<- temp[order(temp[,1],temp[,2]),]
+      
+      temp <- temp %>% filter( !(get(paste0("clu",y0)) == clu_new) ) 
+      
+      # temp <- temp %>% filter( !(get(paste0("clu",y0)) == dplyr::lag(get(paste0("clu",y0)), default = 999999999) & clu_new == dplyr::lag(clu_new, default = 999999999)) ) 
+      
+      temp$diff <- 0
+      
+      for(i in 2:nrow(temp)){ if (is.na(temp[,c(paste0("clu",y0))][i-1]) | is.na( temp[,c("clu_new")][i-1]) ) next 
+        else if (temp[,c(paste0("clu",y0))][i] == temp[,c(paste0("clu",y0))][i-1] 
+                 & temp[,c("clu_new")][i] == temp[,c("clu_new")][i-1])
+          
+          temp$diff[i] <- 1
+      }
+      
+      temp <- temp %>%
+        filter(diff != 1)
+      
+      temp <- temp %>% select(-diff)
+      
+      
+    }
+    
+    temp2 <- temp
+    
+    temp2 <- temp2 %>% rename(help = clu_new, clu_new = paste0("clu",y0) )
+    
+    temp2 <- bind_rows(temp,temp2) %>% mutate_all(function(x) ifelse(is.na(x),-999999999,x))
+    
+    temp2<- temp2[order(temp2[,2],-xtfrm(temp2[,3])),]
+    
+    if (sum(temp2$clu_new == lead(temp2$clu_new,1) & temp2$help != -999999999,na.rm = T) != 0) {
+      
+      
+      temp3 <- temp
+      
+      temp3 <- temp3 %>% rename(clu_new2 = clu_new, clu_new = paste0("clu",y0) )
+      
+      temp3 <- left_join(temp,temp3)
+      
+      temp3 <- temp3 %>% mutate(clu_new2 = ifelse(is.na(clu_new2),clu_new,clu_new2))
+      
+      temp3 <- temp3 %>% filter( get(paste0("clu",y0))!=-999999999 ) 
+      
+      temp3 <- temp3 %>% filter( !is.na(get(paste0("clu",y0))) ) 
+      
+      temp3 <- temp3 %>% select(-clu_new)
+      
+      temp3 <- temp3 %>% rename(clu_new = clu_new2)
+      
+      temp3<- temp3[order(temp3[,1],temp3[,2]),]
+      
+      temp3 <- temp3 %>% filter( !(get(paste0("clu",y0)) == clu_new) ) 
+      
+      # temp <- temp3 %>% filter( !(get(paste0("clu",y0)) == lag(get(paste0("clu",y0)), default = -999999999) & clu_new == lag(clu_new, default = -999999999)) ) 
+      
+      temp3$diff <- 0
+      
+      for(i in 2:nrow(temp3)){ if (is.na(temp3[,c(paste0("clu",y0))][i-1]) | is.na( temp3[,c("clu_new")][i-1]) ) next 
+        else if (temp3[,c(paste0("clu",y0))][i] == temp3[,c(paste0("clu",y0))][i-1] 
+                 & temp3[,c("clu_new")][i] == temp3[,c("clu_new")][i-1])
+          
+          temp3$diff[i] <- 1
+      }
+      
+      temp3 <- temp3 %>%
+        filter(diff != 1)
+      
+      temp <- temp3 %>% select(-diff)
+      
+      
+      rm(temp3)
+      
+    }
+    
+    if (rep_c == 3){
+      break
+    }
+    
+  }
+  
+  temp <- as.data.table(temp) %>%
+    mutate(!!paste0("clu",quo_name(y0)) := as.numeric(as.character(get(paste0("clu",y0)))))
+  
+  data_mun <- data_mun %>% select(-clu_new) %>% left_join(temp) %>% 
+    mutate(!!paste0("clu",quo_name(y0)) := ifelse(!(is.na(clu_new)),clu_new,get(paste0("clu",y0)))) %>% select(-clu_new)
+  
+  rm(temp,temp2)  
+  
+  return(data_mun)
+}                                    
+                                    
 # # test
 # states <- geobr::read_state()
 # a <- dissolve_polygons(states, group_column='code_region')
