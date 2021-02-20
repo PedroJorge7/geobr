@@ -750,6 +750,7 @@ data_mun <- data_mun %>%
 data_mun <- data_mun %>%
 	 mutate(
 	 uf_amc = ifelse(uf_amc %in% c(1, 20),1,
+	 ifelse(uf_amc %in% c(21),3,
 	 ifelse(uf_amc %in% c(4, 5),4,
 	 ifelse(uf_amc %in% c(6),5,
 	 ifelse(uf_amc %in% c(7),6,
@@ -762,7 +763,7 @@ data_mun <- data_mun %>%
 	 ifelse(uf_amc %in% c(14),13,
 	 ifelse(uf_amc %in% c(15,16),14,
 	 ifelse(uf_amc %in% c(17),15,
-	 ifelse(uf_amc %in% c(19),16,uf_amc)))))))))))))),
+	 ifelse(uf_amc %in% c(19),16,uf_amc))))))))))))))),
 	 uf_amc_lb = ifelse(uf_amc %in% c(1),"AM/MT/(RO/RR/MS)",
 	 ifelse(uf_amc %in% c(2),"PA/(AP)",
 	 ifelse(uf_amc %in% c(3),"MA",
